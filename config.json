@@ -1,0 +1,20 @@
+{
+  "excluded_headings": [
+    "はじめに",
+    "参考文献",
+    "謝辞",
+    "付録",
+    "索引",
+    "目次",
+    "あとがき",
+    "概要",
+    "まとめ"
+  ],
+  "number_formats": {
+    "chapter": "{}",
+    "figure": "図{}",
+    "table": "表{}"
+  },
+  "output_directory": "mdbuild",
+  "preserve_existing_numbers": true
+}
