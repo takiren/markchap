@@ -7,7 +7,7 @@ import os
 import json
 import argparse
 import re
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Tuple
 from dataclasses import dataclass
 from markdown_it import MarkdownIt
 
@@ -43,6 +43,7 @@ class NumberState:
     """番号管理状態"""
 
     current_numbers: List[int]
+    # 以下のフィールドは使用されていないが、互換性のために残す
     figure_count: int = 0
     table_count: int = 0
     global_file_count: int = 0
@@ -102,7 +103,7 @@ class MarkdownParser:
 
     def parse_file(
         self, file_path: str
-    ) -> tuple[List[Heading], List[Figure], List[Any]]:
+    ) -> Tuple[List[Heading], List[Figure], List[Any]]:
         """ファイルを解析して見出し・図表・トークンを抽出"""
         with open(file_path, "r", encoding="utf-8") as f:
             content = f.read()
@@ -224,31 +225,11 @@ class NumberingManager:
             heading.number = ".".join(number_parts)
 
             # 図表番号のリセット（章が変わった場合）
+            # 注意: 実際の図表番号管理は_assign_figure_numbersで行われる
             if level == 1:
                 self.state.figure_count = 0
                 self.state.table_count = 0
 
-    def process_figures(self, figures: List[Figure], current_chapter: str) -> None:
-        """図表に番号を付与"""
-        for figure in figures:
-            if figure.type == "figure":
-                self.state.figure_count += 1
-                figure.figure_number = self.state.figure_count
-            elif figure.type == "table":
-                self.state.table_count += 1
-                figure.figure_number = self.state.table_count
-
-            figure.chapter_number = current_chapter
-
-    def get_current_chapter(self, headings: List[Heading]) -> str:
-        """現在の章番号を取得"""
-        # 最新の見出しの番号を返す
-        if not self.state.current_numbers:
-            return "1"
-
-        # 最も深いレベルの番号を返す
-        number_parts = [str(num) for num in self.state.current_numbers if num > 0]
-        return ".".join(number_parts) if number_parts else "1"
 
 
 class FileProcessor:
@@ -352,34 +333,63 @@ class MarkchapCore:
 
     def _assign_figure_numbers(self, figures: List[Figure], headings: List[Heading]) -> None:
         """図表番号を適切に付与"""
-        # 小節ごとに図表番号を管理
+        # 各レベル2の見出し（小節）ごとに図表番号を管理
         section_figure_count = {}
         section_table_count = {}
         
         for figure in figures:
             # 図表の位置から対応する小節を見つける
-            current_section = "1.1"
+            current_section = self._find_section_for_figure(figure, headings)
+            
+            # 小節番号ごとに図表番号を管理
+            figure.figure_number = self._get_next_figure_number(
+                figure.type, current_section, section_figure_count, section_table_count
+            )
+            figure.chapter_number = current_section
+    
+    def _get_next_figure_number(
+        self, 
+        figure_type: str, 
+        section: str, 
+        figure_count: Dict[str, int], 
+        table_count: Dict[str, int]
+    ) -> int:
+        """次の図表番号を取得"""
+        if figure_type == "figure":
+            if section not in figure_count:
+                figure_count[section] = 0
+            figure_count[section] += 1
+            return figure_count[section]
+        elif figure_type == "table":
+            if section not in table_count:
+                table_count[section] = 0
+            table_count[section] += 1
+            return table_count[section]
+        else:
+            print(f"警告: 不明な図表タイプ: {figure_type}")
+            return 1
+
+    def _find_section_for_figure(self, figure: Figure, headings: List[Heading]) -> str:
+        """図表に対応する小節を見つける"""
+        try:
             for heading in headings:
                 if (not heading.is_excluded and 
                     heading.number and 
                     heading.level == 2 and  # レベル2の見出し（小節）
                     heading.line_number <= figure.line_number):
-                    current_section = heading.number
-            
-            
-            # 小節番号ごとに図表番号を管理
-            if figure.type == "figure":
-                if current_section not in section_figure_count:
-                    section_figure_count[current_section] = 0
-                section_figure_count[current_section] += 1
-                figure.figure_number = section_figure_count[current_section]
-            elif figure.type == "table":
-                if current_section not in section_table_count:
-                    section_table_count[current_section] = 0
-                section_table_count[current_section] += 1
-                figure.figure_number = section_table_count[current_section]
-            
-            figure.chapter_number = current_section
+                    return heading.number
+        except (AttributeError, TypeError) as e:
+            print(f"警告: 図表の小節検索中にエラー: {e}")
+        
+        # デフォルト値を動的に取得
+        return self._get_default_section(headings)
+    
+    def _get_default_section(self, headings: List[Heading]) -> str:
+        """デフォルトの小節番号を取得"""
+        for heading in headings:
+            if not heading.is_excluded and heading.number and heading.level == 2:
+                return heading.number
+        return "1.1"  # フォールバック値
 
     def _process_content_directly(
         self, file_path: str, headings: List[Heading], figures: List[Figure]
