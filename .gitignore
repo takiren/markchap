@@ -4,6 +4,7 @@ __pycache__/
 *$py.class
 .claude/
 mdbuild/
+.vscode/
 
 # C extensions
 *.so
