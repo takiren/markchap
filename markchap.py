@@ -410,10 +410,16 @@ class MarkchapCore:
         for figure in figures:
             if figure.figure_number > 0:
                 if figure.type == "figure":
-                    # 画像の処理
+                    # 画像の処理 - altテキストを更新
                     old_pattern = f"![{figure.caption}]"
                     new_pattern = f"![図{figure.chapter_number}.{figure.figure_number}: {figure.caption}]"
                     content = content.replace(old_pattern, new_pattern)
+                    
+                    # 画像の後にキャプションラベルを追加（空行を挟む）
+                    image_pattern = re.escape(f"![図{figure.chapter_number}.{figure.figure_number}: {figure.caption}]") + r"\([^)]+\)"
+                    caption_label = f"**図 {figure.chapter_number}.{figure.figure_number}: {figure.caption}**"
+                    replacement = r"\g<0>" + "\n\n" + caption_label
+                    content = re.sub(image_pattern, replacement, content)
                 elif figure.type == "table":
                     # 表の処理 - コメントをキャプション形式に変換
                     old_pattern = f"<!-- 表: {figure.caption} -->"
