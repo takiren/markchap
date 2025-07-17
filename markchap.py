@@ -415,9 +415,9 @@ class MarkchapCore:
                     new_pattern = f"![図{figure.chapter_number}.{figure.figure_number}: {figure.caption}]"
                     content = content.replace(old_pattern, new_pattern)
                 elif figure.type == "table":
-                    # 表の処理
+                    # 表の処理 - コメントをキャプション形式に変換
                     old_pattern = f"<!-- 表: {figure.caption} -->"
-                    new_pattern = f"<!-- 表{figure.chapter_number}.{figure.figure_number}: {figure.caption} -->"
+                    new_pattern = f"**表{figure.chapter_number}.{figure.figure_number}: {figure.caption}**"
                     content = content.replace(old_pattern, new_pattern)
 
         return content
